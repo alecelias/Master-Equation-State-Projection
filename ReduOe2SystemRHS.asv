@@ -1,0 +1,63 @@
+function dptilde012dt = ReduOe2SystemRHS(t,ptilde012)
+
+global S Q QT FNorm invFNorm indxpiv
+
+if size(ptilde012,1) == 1
+    ptilde012 = ptilde012.';
+end
+
+n = length(ptilde012)/3;
+
+ptilde0 = ptilde012(1:n);
+ptilde1 = ptilde012(n+1:2*n);
+ptilde2 = ptilde012(2*n+1:3*n);
+
+rhstmp = QT*ptilde0;
+rhstmp(~indxpiv) = 0;
+p0 = invFNorm*rhstmp;
+
+dptilde0dt = Q*S*p0;
+
+rhstmp = QT*dptilde0dt;
+rhstmp(~indxpiv) = 0;
+dp0dt = invFNorm*rhstmp;
+
+rhstmp = QT*ptilde1;
+rhstmp2 = dp0dt - S*p0;
+rhstmp(~indxpiv) = rhstmp2(~indxpiv);
+p1 = invFNorm*rhstmp;
+
+dptilde1dt = Q*S*p1;
+
+Adp = diag(QT*dptilde0dt);
+ddptilde0dt2 = -Q*S*diag(p0)*Adp*invA0^2*QT*ptilde0 + ...
+    Q*S*diag(dp0dt)*invA0*QT*ptilde0 + ...
+    Q*S*diag(p0)*invA0*QT*dptilde0dt;
+
+rhstmp = QT*ddptilde0dt2;
+rhstmp(~indxpiv) = 0;
+ddp0dt2 = invFNorm*rhstmp;
+
+rhstmp = QT*dptilde1dt;
+rhstmp2 = ddp0dt2 - S*dp0dt;
+rhstmp(~indxpiv) = rhstmp2(~indxpiv);
+dp1dt = invFNorm*rhstmp;
+
+A2 = diag(QT*ptilde2);
+rhstmp = QT*ptilde2;
+rhstmp2 = dp1dt - S*p1;
+rhstmp(~indxpiv) = rhstmp2(~indxpiv);
+p2 = invFNorm*rhstmp;
+
+dptilde2dt = Q*S*diag(p0)*(-A2*invA0^2 + 2*A1^2*invA0^3)*QT*ptilde0 + ...
+    -2*Q*S*diag(p1)*A1*invA0^2*QT*ptilde0 + ...
+    -2*Q*S*diag(p0)*A1*invA0^2*QT*ptilde1 + ...
+    Q*S*diag(p0)*invA0*QT*ptilde2 + ...
+    2*Q*S*diag(p1)*invA0*QT*ptilde1 + ...
+    Q*S*diag(p2)*invA0*QT*ptilde0;
+
+dptilde012dt = [dptilde0dt; dptilde1dt; dptilde2dt];
+
+return
+
+end
