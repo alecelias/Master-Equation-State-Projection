@@ -1,3 +1,7 @@
+% This script creates a combined plot of the errors w.r.t. epsilon for all
+% of the systems considered. Run only when the systems have all been solved
+% and the necessary matrices containing the errors have been saved.
+
 f = figure
 f.Position = [1, 1, 1120, 840]
 % fontsize(f, 10, "points")

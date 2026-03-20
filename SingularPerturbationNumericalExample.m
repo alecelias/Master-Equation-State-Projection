@@ -24,19 +24,30 @@ maxNormalizErrReduSys0 = [];
 maxNormalizErrReduSys1 = [];
 maxNormalizErrReduSys2 = [];
 
+%% Flags for plotting
+% plotVerbose creates plots for each individual approximation as well as
+% the full solution.
+% fariplot creates plots showing the solution to the full equation as well
+% as the different approximate solutions.
+% fullplot creates plots that show the full solution for each of the
+% individual states, as well as the superbasins that they belong to.
+% approxplot creates plots that show the magnitude of each term in the
+% perturbation expansion.
+
 plotVerbose = false;
 % plotVerbose = true;
 
 fairplot = false;
 % fairplot = true;
 
-% fullplot = false;
-fullplot = true;
+fullplot = false;
+% fullplot = true;
 
 approxplot = false;
 % approxplot = true;
 
-% Set up the transition matrix
+%% Set up the transition matrix
+
 F = zeros(m,m);
 S = zeros(m,m);
 for i = 1:m
@@ -82,12 +93,16 @@ FNorm(indxpiv,:) = QTQ(indxpiv,:);
 invFNorm = inv(FNorm);
 
 %% Solve the full and reduced models
+% Set options for the solver and the time and timesteps.
+
 % ODESolOptions = odeset('RelTol',1e-7,'AbsTol',1e-10); % Options for the ODE solver
 ODESolOptions = odeset('RelTol',3e-14,'AbsTol',3e-14); % Options for the ODE solver
 tspan = [0 10];
 t = linspace(tspan(1),tspan(2),1001); % times to evaluate the solution
 Dt = t(2)-t(1);
+
 %% Create initial conditions
+
 % p = [0.3 0.5 0.2].';
 p = [0.1 0.05 0.15 0.07 0.03 0.25 0.15 0.2].';
 rhstmp = QT*Q*p;
@@ -97,6 +112,9 @@ pini0 = invFNorm*rhstmp; % use quasi equilibrated (within superbasins) probabili
 ptilde012ini = [Q*pini0; zeros(2*n,1)];
 
 %% Solve the approximate system
+% The solution to this does not change with epsilon so this can be done
+% outside of the loop
+
 solRedu012 = ode15s(@ReduOe2SystemRHS,tspan,ptilde012ini,ODESolOptions);
 psolRedu012 = deval(solRedu012,t);
 
@@ -140,6 +158,7 @@ for epsl = epsl_range
     % ptilde = Q*p;
     % p - K*ptilde; % this should give the zero vector (up to numerical accuracy)
 
+    %% Create initial vector that is quasi-equilibrated.
 
     dpinitilde0dt = ReduOe0SystemRHS(0,Q*pini0);
     
@@ -342,6 +361,9 @@ for epsl = epsl_range
 end
 
 % close all
+
+%% Plot figure over range of epsilon values
+
 fff = figure
 epsl_range
 normErr0

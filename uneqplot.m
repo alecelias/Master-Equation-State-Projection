@@ -1,3 +1,8 @@
+% This script creates a plot of the errors w.r.t. epsilon for the 8-state
+% theoretical system, but using different initial vectors. Only run this
+% when the relevant systems have been run and the matrices containing the
+% errors have been saved.
+
 f = figure
 f.Position = [1, 1, 1080, 1960]
 % fontsize(f, 10, "points")

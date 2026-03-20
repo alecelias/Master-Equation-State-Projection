@@ -5,13 +5,7 @@ clc
 global n W S Q QT FNorm invFNorm indxpiv epsl
 
 %% Set up the problem
-% Define the number of states and the propensities for the allowed transitions
-% kfij refers to transition from state i to j ( i => j )
-
-% RunParSet1
-% RunParSet2
-% RunParSet3
-% disp(['Number of states: ' num2str(m)]);
+% Define the range of epsilon values to look at and set up necessary matrices. 
 
 % epsl_range = [3.2 1.6 0.8 0.4 0.2 0.1 0.05 0.025 0.0125 0.00625 0.003125];
 % epsl_range = logspace(-2.1,-4.1,30);
@@ -25,11 +19,20 @@ maxNormalizErrReduSys1 = [];
 maxNormalizErrReduSys2 = [];
 avesss = [];
 
+%% Flags for plotting
+% plotVerbose creates plots for each individual approximation as well as
+% the full solution.
+% plotave creates a plot of the average number of adsorbed species on the
+% lattice against time.
+% snapplot plots the probability distribution of the number of adsorbed
+% species on the lattice at given points in time.
+% fairplot is deprecated.
+
 plotVerbose = false;
 % plotVerbose = true;
 
-% plotave = false;
-plotave = true;
+plotave = false;
+% plotave = true;
 
 snapplot = false;
 % snapplot = true;
@@ -37,18 +40,28 @@ snapplot = false;
 fairplot = false;
 % fairplot = true;
 
+%% Choice of system
+% 1D lattice or 2D lattice
+
+system1d = false;
+system2d = true;
+
 % Set up the transition matrix for 1D lattice
 
-% L = 9;
-% m = 2^L;
-% [F, S] = CreateTmats(L, 1, 8.5, 4.0, 10.);
+if system1d
+    L = 9;
+    m = 2^L;
+    [F, S] = CreateTmats(L, 1, 8.5, 4.0, 10.);
+end
 
 % Set up the transition matrix for 2D lattice
 
-L = 3;
-NL = L^2;
-m = 2^NL;
-[F, S] = Create2Dmats(L, 1, 8.5, 4.0, 10.);
+if system2d
+    L = 3;
+    NL = L^2;
+    m = 2^NL;
+    [F, S] = Create2Dmats(L, 1, 8.5, 4.0, 10.);
+end
 
 %% Create necessary matrices
 
@@ -69,12 +82,18 @@ FNorm(indxpiv,:) = QTQ(indxpiv,:);
 invFNorm = inv(FNorm);
 
 %% Solve the full and reduced models
+% Set options for the solver and the time and timesteps.
+
 % ODESolOptions = odeset('RelTol',1e-7,'AbsTol',1e-10); % Options for the ODE solver
 ODESolOptions = odeset('RelTol',1e-12,'AbsTol',1e-14); % Options for the ODE solver
 tspan = [0 1];
 t = linspace(tspan(1),tspan(2),1001); % times to evaluate the solution
 Dt = t(2)-t(1);
+
 %% Create initial conditions
+% Start with either predefined probabilities or use a random number. The
+% population for each superbasin is given here.
+
 p = [0.15, 0.05, 0.08, 0.12, 0.16, 0.04, 0.13, 0.07, 0.03, 0.17]';
 rhstmp = QT*p;
 % p = rand(m, 1);
@@ -86,6 +105,9 @@ pini0 = invFNorm*rhstmp; % use quasi equilibrated (within superbasins) probabili
 ptilde012ini = [Q*pini0; zeros(2*n,1)];
 
 %% Solve the approximate system
+% The solution to this does not change with epsilon so this can be done
+% outside of the loop
+
 solRedu012 = ode15s(@ReduOe2SystemRHS,tspan,ptilde012ini,ODESolOptions);
 psolRedu012 = deval(solRedu012,t);
 
@@ -94,41 +116,7 @@ for epsl = epsl_range
     W = 1/epsl*F + S;
     % disp(W)
 
-    % %% Cross-check our formulas
-    % pini = zeros(m,1);
-    % pini(1) = 1/3;
-    % pini(2) = 2/3;
-    % 
-    % % Solve for a few initial timesteps with forward Euler
-    % p = pini;
-    % Dt = 0.00005;
-    % for i = 1:1000
-    %     p = p + W*p*Dt;
-    %     % stem(p)
-    %     % title(['step ' num2str(i*Dt)])
-    %     % drawnow
-    % end
-    % if any(isnan(p))
-    %     disp(p)
-    %     error('At least one of the elements of p has become NaN!')
-    % end
-
-    % %% Demonstrate the solution of the O(1/eps) equations
-    % rhstmp = QTQ*p; % right-hand side must have the values of ptilde
-    % % in the rows corresponding to the normalisation equations
-    % rhstmp(~indxpiv) = 0; % the other rows should have zeros (fluxes between superbasin's states balance out)
-    % pQEq = invFNorm*rhstmp; % this gives the probabilities quasi-equilibrated within each superbasin
-    % sum(pQEq);
-    % % Validate the projector: the following expression should evaluate to the
-    % % zero matrix
-    % Q*F;
-    
-
-    % %% Check the validity of the distribution matrix K
-    % K = diag(p)*inv(diag(QT*Q*p))*QT;
-    % ptilde = Q*p;
-    % p - K*ptilde; % this should give the zero vector (up to numerical accuracy)
-
+    %% Create initial vector that is quasi-equilibrated.
 
     dpinitilde0dt = ReduOe0SystemRHS(0,Q*pini0);
     
@@ -156,11 +144,13 @@ for epsl = epsl_range
     pini = pini0 + epsl*pini1 + epsl^2*pini2;
 
     %% Solve the full system
+
     solFull = ode15s(@FullSystemRHS,tspan,pini,ODESolOptions);
     psolFull = deval(solFull,t);
     maxNormalizErrFullSys = [maxNormalizErrFullSys max(sum(psolFull,1)-1)];
 
     %% Calculate approximate solutions for given epsilon and evaluate error
+
     psolRedu2 = psolRedu012(1:n,:) + epsl*psolRedu012(n+1:2*n,:) ...
         + epsl^2*psolRedu012(2*n+1:3*n,:);
     psolRedu1 = psolRedu012(1:n,:) + epsl*psolRedu012(n+1:2*n,:);
@@ -171,6 +161,7 @@ for epsl = epsl_range
     maxNormalizErrReduSys2 = [maxNormalizErrReduSys2 max(sum(psolRedu2,1)-1)];
 
     %% Evaluate the error of all the systems
+
     Err0 = sqrt(sum((Q*psolFull-psolRedu0).^2*Dt,2));
     normErr0 = [normErr0 norm(Err0)];
 
@@ -342,6 +333,8 @@ for epsl = epsl_range
 end
 
 % close all
+%% Plot figure over range of epsilon values
+
 figure
 epsl_range
 normErr0
